@@ -7,7 +7,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { IsSafeText, IsValidLanguage } from '@common/decorators';
+import { IsSafeText, IsValidLanguage } from '../../../common/decorators';
 
 // ── Send message ──────────────────────────────────────────────────────────────
 

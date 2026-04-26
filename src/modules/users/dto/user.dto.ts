@@ -13,7 +13,7 @@ import {
   IsValidUsername,
   IsValidLanguage,
   IsValidAvatarSeed,
-} from '@common/decorators';
+} from '../../../common/decorators';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'Muraho', maxLength: 50 })

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, Matches } from 'class-validator';
-import { IsValidUsername } from '@common/decorators';
+import { IsValidUsername } from '../../../common/decorators';
 
 export class AnonymousSignInDto {
   @ApiProperty({ example: 'Umuntu 04', description: 'Display username' })
