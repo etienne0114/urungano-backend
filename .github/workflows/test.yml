@@ -1,0 +1,170 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: [ 'backend/**' ]
+  pull_request:
+    branches: [ main, develop ]
+    paths: [ 'backend/**' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: urungano_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: backend
+      run: npm ci
+
+    - name: Create test environment file
+      working-directory: backend
+      run: |
+        cp .env.example .env.test
+        echo "DB_HOST=localhost" >> .env.test
+        echo "DB_PORT=5432" >> .env.test
+        echo "DB_USERNAME=postgres" >> .env.test
+        echo "DB_PASSWORD=postgres" >> .env.test
+        echo "DB_NAME=urungano_test" >> .env.test
+        echo "NODE_ENV=test" >> .env.test
+        echo "JWT_SECRET=test_secret_key_for_ci" >> .env.test
+
+    - name: Wait for PostgreSQL
+      run: |
+        until pg_isready -h localhost -p 5432 -U postgres; do
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+
+    - name: Run linting
+      working-directory: backend
+      run: npm run lint
+
+    - name: Run unit tests
+      working-directory: backend
+      run: npm run test:unit
+      env:
+        NODE_ENV: test
+
+    - name: Run integration tests
+      working-directory: backend
+      run: npm run test:integration
+      env:
+        NODE_ENV: test
+
+    - name: Run e2e tests
+      working-directory: backend
+      run: npm run test:e2e
+      env:
+        NODE_ENV: test
+
+    - name: Run all tests with coverage
+      working-directory: backend
+      run: npm run test:ci
+      env:
+        NODE_ENV: test
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: backend/coverage/lcov.info
+        directory: backend/coverage/
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: false
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.node-version }}
+        path: |
+          backend/coverage/
+          backend/test-results.xml
+        retention-days: 30
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: backend
+      run: npm ci
+
+    - name: Run security audit
+      working-directory: backend
+      run: npm audit --audit-level=moderate
+
+    - name: Run dependency check
+      working-directory: backend
+      run: npx audit-ci --moderate
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: backend
+      run: npm ci
+
+    - name: Build application
+      working-directory: backend
+      run: npm run build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: backend/dist/
+        retention-days: 7
