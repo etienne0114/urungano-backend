@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -13,8 +14,11 @@ import {
   CastVoteDto,
   SendMessageDto,
   SubmitQuestionDto,
+  AnswerQuestionDto,
+  SendDirectMessageDto,
 } from './dto/community.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { EducatorGuard } from '../../common/guards/educator.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { User } from '../users/entities/user.entity';
 
@@ -91,5 +95,44 @@ export class CommunityController {
     @Body() dto: SubmitQuestionDto,
   ) {
     return this.communityService.submitQuestion(user.id, dto);
+  }
+
+  @Patch('questions/:id/answer')
+  @UseGuards(EducatorGuard)
+  @ApiOperation({ summary: 'Answer an anonymous question (Educators only)' })
+  answerQuestion(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: AnswerQuestionDto,
+  ) {
+    return this.communityService.answerQuestion(id, user.id, dto);
+  }
+
+  // ── Direct messages ───────────────────────────────────────────────────────
+
+  @Get('direct/:otherUserId')
+  @ApiOperation({ summary: 'Get direct messages with another user' })
+  getDirectMessages(
+    @CurrentUser() user: User,
+    @Param('otherUserId') otherUserId: string,
+  ) {
+    return this.communityService.getDirectMessages(user.id, otherUserId);
+  }
+
+  @Post('direct')
+  @ApiOperation({ summary: 'Send a direct message' })
+  sendDirectMessage(
+    @CurrentUser() user: User,
+    @Body() dto: SendDirectMessageDto,
+  ) {
+    return this.communityService.sendDirectMessage(user.id, dto);
+  }
+
+  // ── Featured ──────────────────────────────────────────────────────────────
+
+  @Get('weekly-circle')
+  @ApiOperation({ summary: 'Get the featured circle of the week' })
+  getWeeklyCircle() {
+    return this.communityService.getWeeklyCircle();
   }
 }

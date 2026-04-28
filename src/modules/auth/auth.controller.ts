@@ -23,7 +23,7 @@ export class AuthController {
   @Throttle({ auth: { limit: 5, ttl: 60000 } }) // 5 requests per minute for anonymous sign-in
   @ApiOperation({ summary: 'Create or sign in as anonymous user' })
   signInAnonymous(@Body() dto: AnonymousSignInDto) {
-    return this.authService.signInAnonymous(dto.username);
+    return this.authService.signInAnonymous(dto.username, dto.pin, dto.isRegistration);
   }
 
   @Post('pin/set')

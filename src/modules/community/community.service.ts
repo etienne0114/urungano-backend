@@ -12,6 +12,7 @@ import { ChatMessage } from './entities/chat-message.entity';
 import { Debate } from './entities/debate.entity';
 import { DebateVote } from './entities/debate-vote.entity';
 import { AnonQuestion } from './entities/anon-question.entity';
+import { DirectMessage } from './entities/direct-message.entity';
 import { UsersService } from '../users/users.service';
 import type {
   SendMessageDto,
@@ -21,6 +22,9 @@ import type {
   MessageResponseDto,
   DebateResponseDto,
   AnonQuestionResponseDto,
+  AnswerQuestionDto,
+  SendDirectMessageDto,
+  DirectMessageResponseDto,
 } from './dto/community.dto';
 
 @Injectable()
@@ -40,6 +44,9 @@ export class CommunityService {
 
     @InjectRepository(AnonQuestion)
     private readonly questionRepo: Repository<AnonQuestion>,
+
+    @InjectRepository(DirectMessage)
+    private readonly directMsgRepo: Repository<DirectMessage>,
 
     private readonly usersService: UsersService,
   ) {}
@@ -197,7 +204,19 @@ export class CommunityService {
       this.voteRepo.create({ user, debate, vote: dto.vote }),
     );
 
-    return this.debateToDto(debate, userId);
+    const updated = await this.debateToDto(debate, userId);
+
+    // Broadcast vote update to all clients
+    if (this.chatGateway) {
+      this.chatGateway.server.emit('voteUpdate', {
+        debateId,
+        yesPercent: updated.yesPercent,
+        noPercent: updated.noPercent,
+        totalVotes: updated.totalVotes,
+      });
+    }
+
+    return updated;
   }
 
   private async debateToDto(
@@ -242,13 +261,111 @@ export class CommunityService {
   ): Promise<AnonQuestionResponseDto> {
     const user = await this.usersService.findById(userId);
     const question = this.questionRepo.create({
-      asker:   user,
-      text:    dto.text.trim(),
+      asker: user,
+      text: dto.text.trim(),
       answered: false,
-      reply:   null,
+      reply: null,
     });
     const saved = await this.questionRepo.save(question);
     return this.questionToDto(saved);
+  }
+
+  // ── Anonymous questions (Educator) ────────────────────────────────────────
+
+  async answerQuestion(
+    questionId: string,
+    educatorId: string,
+    dto: AnswerQuestionDto,
+  ): Promise<AnonQuestionResponseDto> {
+    const question = await this.questionRepo.findOne({ where: { id: questionId } });
+    if (!question) throw new NotFoundException('Question not found');
+
+    const educator = await this.usersService.findById(educatorId);
+    
+    question.answered = true;
+    question.reply = dto.reply.trim();
+    question.answeredBy = educator.username;
+    
+    const saved = await this.questionRepo.save(question);
+    return this.questionToDto(saved);
+  }
+
+  // ── Direct messages ───────────────────────────────────────────────────────
+
+  async getDirectMessages(
+    userId: string,
+    otherUserId: string,
+  ): Promise<DirectMessageResponseDto[]> {
+    const messages = await this.directMsgRepo.find({
+      where: [
+        { sender: { id: userId }, receiver: { id: otherUserId } },
+        { sender: { id: otherUserId }, receiver: { id: userId } },
+      ],
+      relations: ['sender', 'receiver'],
+      order: { createdAt: 'ASC' },
+    });
+    return messages.map(this.directMessageToDto);
+  }
+
+  async sendDirectMessage(
+    senderId: string,
+    dto: SendDirectMessageDto,
+  ): Promise<DirectMessageResponseDto> {
+    const [sender, receiver] = await Promise.all([
+      this.usersService.findById(senderId),
+      this.usersService.findById(dto.receiverId),
+    ]);
+
+    const dm = this.directMsgRepo.create({
+      sender,
+      receiver,
+      text: dto.text.trim(),
+      lang: dto.lang ?? 'rw',
+    });
+
+    const saved = await this.directMsgRepo.save(dm);
+    
+    const messageDto = this.directMessageToDto(saved);
+
+    // Broadcast via WebSocket
+    if (this.chatGateway) {
+      await this.chatGateway.broadcastToUser(dto.receiverId, 'newDirectMessage', {
+        message: messageDto,
+      });
+    }
+
+    return messageDto;
+  }
+
+  private directMessageToDto(m: DirectMessage): DirectMessageResponseDto {
+    return {
+      id:           m.id,
+      senderId:     m.sender.id,
+      senderName:   m.sender.username,
+      receiverId:   m.receiver.id,
+      receiverName: m.receiver.username,
+      text:         m.text,
+      lang:         m.lang,
+      isRead:       m.isRead,
+      createdAt:    m.createdAt,
+    };
+  }
+
+  // ── Featured ──────────────────────────────────────────────────────────────
+
+  async getWeeklyCircle(): Promise<CircleResponseDto> {
+    // Return a circle with 'weekly' tag or just the first one for now
+    const circles = await this.circleRepo.find({ take: 1 });
+    if (circles.length === 0) throw new NotFoundException('No circles available');
+    return this.circleToDto(circles[0]);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  private async findCircleBySlug(slug: string): Promise<Circle> {
+    const circle = await this.circleRepo.findOne({ where: { slug } });
+    if (!circle) throw new NotFoundException(`Circle '${slug}' not found`);
+    return circle;
   }
 
   private questionToDto(q: AnonQuestion): AnonQuestionResponseDto {
@@ -260,13 +377,5 @@ export class CommunityService {
       answeredBy:  q.answeredBy,
       createdAt:   q.createdAt,
     };
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  private async findCircleBySlug(slug: string): Promise<Circle> {
-    const circle = await this.circleRepo.findOne({ where: { slug } });
-    if (!circle) throw new NotFoundException(`Circle '${slug}' not found`);
-    return circle;
   }
 }

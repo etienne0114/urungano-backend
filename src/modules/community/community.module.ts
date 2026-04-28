@@ -7,6 +7,7 @@ import { ChatMessage } from './entities/chat-message.entity';
 import { Debate } from './entities/debate.entity';
 import { DebateVote } from './entities/debate-vote.entity';
 import { AnonQuestion } from './entities/anon-question.entity';
+import { DirectMessage } from './entities/direct-message.entity';
 import { CommunityService } from './community.service';
 import { CommunityController } from './community.controller';
 import { ChatGateway } from './gateways/chat.gateway';
@@ -20,6 +21,7 @@ import { UsersModule } from '../users/users.module';
       Debate,
       DebateVote,
       AnonQuestion,
+      DirectMessage,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

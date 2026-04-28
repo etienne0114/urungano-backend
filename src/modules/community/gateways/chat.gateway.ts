@@ -138,11 +138,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         timestamp: new Date(),
       });
 
-      // Send current online count
+      // Send current online count and users list
       const onlineCount = await this.getCircleOnlineCount(data.circleSlug);
+      const onlineUsers = await this.getCircleOnlineUsers(data.circleSlug);
+      
       this.server.to(`circle:${data.circleSlug}`).emit('onlineCountUpdate', {
         circleSlug: data.circleSlug,
         onlineCount,
+        onlineUsers, // Added
       });
 
     } catch (error) {
@@ -180,11 +183,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         timestamp: new Date(),
       });
 
-      // Send updated online count
+      // Send updated online count and users list
       const onlineCount = await this.getCircleOnlineCount(data.circleSlug);
+      const onlineUsers = await this.getCircleOnlineUsers(data.circleSlug);
+
       this.server.to(`circle:${data.circleSlug}`).emit('onlineCountUpdate', {
         circleSlug: data.circleSlug,
         onlineCount,
+        onlineUsers, // Added
       });
 
     } catch (error) {
@@ -296,20 +302,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return uniqueUsers.size;
   }
 
-  private async getCircleOnlineUsers(circleSlug: string): Promise<Array<{ userId: string; username: string }>> {
+  private async getCircleOnlineUsers(circleSlug: string): Promise<Array<{ userId: string; username: string; avatarSeed: string }>> {
     const sockets = await this.server.in(`circle:${circleSlug}`).fetchSockets();
-    const uniqueUsers = new Map<string, string>();
+    const uniqueUsers = new Map<string, { username: string; avatarSeed: string }>();
     
     for (const socket of sockets) {
       const authSocket = socket as unknown as AuthenticatedSocket;
       if (authSocket.userId && authSocket.username) {
-        uniqueUsers.set(authSocket.userId, authSocket.username);
+        // Fetch full user to get avatarSeed if not on socket
+        // Optimization: we could attach avatarSeed to socket during connection
+        const user = await this.usersService.findById(authSocket.userId);
+        uniqueUsers.set(authSocket.userId, { 
+          username: authSocket.username,
+          avatarSeed: user.avatarSeed 
+        });
       }
     }
     
-    return Array.from(uniqueUsers.entries()).map(([userId, username]) => ({
+    return Array.from(uniqueUsers.entries()).map(([userId, data]) => ({
       userId,
-      username,
+      username: data.username,
+      avatarSeed: data.avatarSeed,
     }));
   }
 

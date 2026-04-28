@@ -21,13 +21,16 @@ export class UsersService extends BaseService<User> {
     super(userRepo, dataSource);
   }
 
-  async createAnonymous(username: string): Promise<User> {
+  async createAnonymous(username: string, pin?: string): Promise<User> {
     return this.runInTransaction(async (queryRunner) => {
       const exists = await queryRunner.manager.findOne(User, { where: { username } });
       if (exists) throw new ConflictException('Username already taken');
 
+      const pinHash = pin ? await bcrypt.hash(pin, UsersService.SALT_ROUNDS) : null;
+
       const user = queryRunner.manager.create(User, { 
         username, 
+        pinHash,
         lastActiveDate: new Date() 
       });
       return queryRunner.manager.save(user);

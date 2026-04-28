@@ -46,6 +46,9 @@ export class User {
   @Column({ name: 'is_private', default: false })
   isPrivate: boolean;
 
+  @Column({ name: 'is_educator', default: false })
+  isEducator: boolean;
+
   @Column({ type: 'jsonb', default: [] })
   earnedBadges: string[];
 

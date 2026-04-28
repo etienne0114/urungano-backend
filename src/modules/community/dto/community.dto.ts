@@ -53,6 +53,42 @@ export class SubmitQuestionDto {
   text: string;
 }
 
+// ── Answer anonymous question ─────────────────────────────────────────────────
+
+export class AnswerQuestionDto {
+  @ApiProperty({
+    description: 'Reply to anonymous question',
+    example: 'Yes, spotting can be normal but if it persists...',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(5)
+  @MaxLength(1000)
+  @IsSafeText()
+  reply: string;
+}
+
+// ── Send direct message ───────────────────────────────────────────────────────
+
+export class SendDirectMessageDto {
+  @ApiProperty({ description: 'Receiver user ID' })
+  @IsString()
+  @IsNotEmpty()
+  receiverId: string;
+
+  @ApiProperty({ description: 'Message body' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  @IsSafeText()
+  text: string;
+
+  @ApiPropertyOptional({ default: 'rw' })
+  @IsString()
+  @IsValidLanguage()
+  lang?: string;
+}
+
 // ── Response DTOs ─────────────────────────────────────────────────────────────
 
 export class CircleResponseDto {
@@ -96,5 +132,17 @@ export class AnonQuestionResponseDto {
   @ApiProperty() answered: boolean;
   @ApiProperty({ nullable: true }) reply: string | null;
   @ApiProperty({ nullable: true }) answeredBy: string | null;
+  @ApiProperty() createdAt: Date;
+}
+
+export class DirectMessageResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() senderId: string;
+  @ApiProperty() senderName: string;
+  @ApiProperty() receiverId: string;
+  @ApiProperty() receiverName: string;
+  @ApiProperty() text: string;
+  @ApiProperty() lang: string;
+  @ApiProperty() isRead: boolean;
   @ApiProperty() createdAt: Date;
 }
