@@ -38,3 +38,6 @@ lerna-debug.log*
 .env.test
 .env.production
 .env.local
+
+# Public Assets
+/public/audio

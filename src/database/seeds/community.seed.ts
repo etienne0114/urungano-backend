@@ -4,7 +4,7 @@ import { ChatMessage } from '../../modules/community/entities/chat-message.entit
 import { Debate } from '../../modules/community/entities/debate.entity';
 import { AnonQuestion } from '../../modules/community/entities/anon-question.entity';
 import { User } from '../../modules/users/entities/user.entity';
-import * as bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 
 export async function seedCommunity(dataSource: DataSource): Promise<void> {
   const circleRepo   = dataSource.getRepository(Circle);

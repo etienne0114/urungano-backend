@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { SanitizationPipe } from './sanitization.pipe';
 import { Controller, Post, Body } from '@nestjs/common';
 import { IsString } from 'class-validator';
-import * as request from 'supertest';
+import request from 'supertest';
 
 class TestDto {
   @IsString()
