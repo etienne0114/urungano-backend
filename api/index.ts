@@ -1,14 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import * as express from 'express';
+import express from 'express';
 import { ValidationPipe } from '@nestjs/common';
-import * as helmet from 'helmet';
+import helmet from 'helmet';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { ResponseTransformInterceptor } from '../src/common/interceptors/response-transform.interceptor';
 import { SanitizationPipe } from '../src/common/pipes/sanitization.pipe';
 
-let cachedServer: express.Express;
+let cachedServer: any;
 
 async function bootstrapServer() {
   if (!cachedServer) {
@@ -24,7 +24,7 @@ async function bootstrapServer() {
     
     app.enableCors({ origin: true, credentials: true });
 
-    app.use(helmet.default({
+    app.use(helmet({
       contentSecurityPolicy: false,
       crossOriginEmbedderPolicy: false,
     }));
