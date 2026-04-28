@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import express from 'express';
+import * as express from 'express';
 import { ValidationPipe } from '@nestjs/common';
-import helmet from 'helmet';
+import * as helmet from 'helmet';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { ResponseTransformInterceptor } from '../src/common/interceptors/response-transform.interceptor';
 import { SanitizationPipe } from '../src/common/pipes/sanitization.pipe';
@@ -12,7 +12,10 @@ let cachedServer: any;
 
 async function bootstrapServer() {
   if (!cachedServer) {
-    const expressApp = express();
+    // Robust express initialization for Vercel runtime
+    const expressFunc = (express as any).default || express;
+    const expressApp = expressFunc();
+    
     const app = await NestFactory.create(
       AppModule,
       new ExpressAdapter(expressApp),
@@ -24,7 +27,9 @@ async function bootstrapServer() {
     
     app.enableCors({ origin: true, credentials: true });
 
-    app.use(helmet({
+    // Robust helmet initialization
+    const helmetFunc = (helmet as any).default || helmet;
+    app.use(helmetFunc({
       contentSecurityPolicy: false,
       crossOriginEmbedderPolicy: false,
     }));
