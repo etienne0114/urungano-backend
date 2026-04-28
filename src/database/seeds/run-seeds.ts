@@ -6,12 +6,15 @@ import { seedCommunity } from './community.seed';
 
 dotenv.config();
 
+// synchronize: false — never auto-alter schema on seed runs.
+// Schema changes belong in migrations, not seeds.
+// Using synchronize:true on Supabase can drop/recreate tables and wipe all users.
 const dataSource = process.env.DATABASE_URL
   ? new DataSource({
       type: 'postgres',
       url: process.env.DATABASE_URL,
       entities: [__dirname + '/../../**/*.entity{.ts,.js}'],
-      synchronize: true,
+      synchronize: false,
       ssl: { rejectUnauthorized: false },
     })
   : new DataSource({
@@ -22,7 +25,7 @@ const dataSource = process.env.DATABASE_URL
       password: process.env.DB_PASSWORD || 'postgres',
       database: process.env.DB_NAME || 'urungano',
       entities: [__dirname + '/../../**/*.entity{.ts,.js}'],
-      synchronize: true,
+      synchronize: false,
     });
 
 async function run(): Promise<void> {
