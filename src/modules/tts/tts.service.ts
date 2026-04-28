@@ -30,7 +30,12 @@ export class TtsService {
   private _piperAvailable: boolean | null = null;
 
   constructor(private readonly config: ConfigService) {
-    this.audioDir = path.join(process.cwd(), 'public', 'audio');
+    const isVercel = process.env.VERCEL === '1' || !!process.env.NOW_REGION;
+    
+    // On Vercel, we must use /tmp for any writes, though they won't persist
+    this.audioDir = isVercel 
+      ? path.join('/tmp', 'audio')
+      : path.join(process.cwd(), 'public', 'audio');
 
     // Try persistent home location first, then tmp fallback
     const homePython = '/home/umwami/.piper_venv/bin/python';
@@ -42,7 +47,13 @@ export class TtsService {
     const fallbackScript = path.join(process.cwd(), '..', 'backend', 'scripts', 'synthesize.py');
     this.scriptPath = fs.existsSync(directScript) ? directScript : fallbackScript;
 
-    fs.mkdirSync(this.audioDir, { recursive: true });
+    try {
+      if (!fs.existsSync(this.audioDir)) {
+        fs.mkdirSync(this.audioDir, { recursive: true });
+      }
+    } catch (err) {
+      this.logger.warn(`Could not create audio directory at ${this.audioDir}: ${err.message}`);
+    }
   }
 
   // ── Piper availability probe (cached after first check) ─────────────────────
