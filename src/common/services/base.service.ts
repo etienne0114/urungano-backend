@@ -8,6 +8,7 @@ import {
   ObjectLiteral
 } from 'typeorm';
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { TransactionManager, TransactionalOptions } from '../decorators/transactional.decorator';
 
 export interface PaginationOptions {
   page?: number;
@@ -28,15 +29,29 @@ export interface PaginatedResult<T> {
 
 @Injectable()
 export abstract class BaseService<T extends ObjectLiteral> {
+  protected readonly transactionManager: TransactionManager;
+
   constructor(
     protected readonly repository: Repository<T>,
     protected readonly dataSource: DataSource,
-  ) {}
+  ) {
+    this.transactionManager = new TransactionManager(dataSource);
+  }
 
   /**
-   * Run operations inside a transaction
+   * Run operations inside a transaction with enhanced options
    */
   async runInTransaction<R>(
+    operation: (queryRunner: QueryRunner) => Promise<R>,
+    options: TransactionalOptions = {},
+  ): Promise<R> {
+    return this.transactionManager.executeInTransaction(operation, options);
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  async runInTransactionLegacy<R>(
     operation: (queryRunner: QueryRunner) => Promise<R>,
   ): Promise<R> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -53,6 +68,16 @@ export abstract class BaseService<T extends ObjectLiteral> {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  /**
+   * Execute multiple operations in a single transaction
+   */
+  async executeMultipleInTransaction<R>(
+    operations: Array<(queryRunner: QueryRunner) => Promise<any>>,
+    options: TransactionalOptions = {},
+  ): Promise<R[]> {
+    return this.transactionManager.executeMultipleInTransaction(operations, options);
   }
 
   /**

@@ -7,6 +7,13 @@ import {
 } from '@nestjs/swagger';
 import { LessonsService } from './lessons.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { 
+  Paginated, 
+  Pagination, 
+  PaginationQueryDto,
+  CursorPagination,
+  CursorPaginationQueryDto 
+} from '../../common/decorators/paginated.decorator';
 import type { LessonCategory } from './entities/lesson.entity';
 
 @ApiTags('Lessons')
@@ -19,35 +26,61 @@ export class LessonsController {
   @Get()
   @ApiOperation({ summary: 'Get all lessons with pagination and filtering' })
   @ApiQuery({ name: 'category', required: false, enum: ['menstrual_health', 'hiv_sti', 'anatomy', 'mental_health', 'relationships'] })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'includeDetails', required: false, type: Boolean, description: 'Include chapters and hotspots' })
+  @Paginated({ defaultLimit: 10, maxLimit: 50 })
   findAll(
     @Query('category') category?: LessonCategory,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
+    @Query('includeDetails') includeDetails: boolean = true,
+    @Pagination() pagination?: any,
   ) {
-    return this.lessonsService.findAll(category).then((lessons) => {
-      const currentPage = Math.max(1, Number(page) || 1);
-      const itemsPerPage = Math.max(1, Number(limit) || 10);
-      const start = (currentPage - 1) * itemsPerPage;
-      const items = lessons.slice(start, start + itemsPerPage);
+    if (pagination) {
+      return this.lessonsService.findAll(category, pagination, includeDetails);
+    }
+    return this.lessonsService.findAll(category, undefined, includeDetails);
+  }
 
-      return {
-        items,
-        meta: {
-          totalItems: lessons.length,
-          itemCount: items.length,
-          itemsPerPage,
-          totalPages: Math.max(1, Math.ceil(lessons.length / itemsPerPage)),
-          currentPage,
-        },
-      };
-    });
+  @Get('cursor')
+  @ApiOperation({ summary: 'Get lessons with cursor-based pagination (better performance for large datasets)' })
+  @ApiQuery({ name: 'category', required: false, enum: ['menstrual_health', 'hiv_sti', 'anatomy', 'mental_health', 'relationships'] })
+  @ApiQuery({ name: 'includeDetails', required: false, type: Boolean, description: 'Include chapters and hotspots' })
+  findAllCursor(
+    @Query('category') category?: LessonCategory,
+    @Query('includeDetails') includeDetails: boolean = false,
+    @CursorPagination() pagination?: any,
+  ) {
+    return this.lessonsService.findAllCursor(pagination, category, includeDetails);
+  }
+
+  @Get('summaries')
+  @ApiOperation({ summary: 'Get lesson summaries without detailed relations (fast list view)' })
+  @ApiQuery({ name: 'category', required: false, enum: ['menstrual_health', 'hiv_sti', 'anatomy', 'mental_health', 'relationships'] })
+  findSummaries(@Query('category') category?: LessonCategory) {
+    return this.lessonsService.findSummaries(category);
+  }
+
+  @Get('category/:category')
+  @ApiOperation({ summary: 'Get lessons by category with caching' })
+  @ApiQuery({ name: 'includeDetails', required: false, type: Boolean, description: 'Include chapters and hotspots' })
+  findByCategory(
+    @Param('category') category: LessonCategory,
+    @Query('includeDetails') includeDetails: boolean = true,
+  ) {
+    return this.lessonsService.findByCategory(category, includeDetails);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single lesson with all chapters and hotspots' })
-  findOne(@Param('id') id: string) {
-    return this.lessonsService.findOne(id);
+  @ApiQuery({ name: 'includeDetails', required: false, type: Boolean, description: 'Include chapters and hotspots' })
+  findOne(
+    @Param('id') id: string,
+    @Query('includeDetails') includeDetails: boolean = true,
+  ) {
+    return this.lessonsService.findOne(id, includeDetails);
+  }
+
+  @Get(':id/basic')
+  @ApiOperation({ summary: 'Get basic lesson info without relations (fast access)' })
+  findOneBasic(@Param('id') id: string) {
+    return this.lessonsService.findOneBasic(id);
   }
 }
