@@ -48,7 +48,7 @@ export class LessonsService extends BaseService<Lesson> {
     // Apply search if provided
     if (pagination?.search) {
       qb.andWhere(
-        '(lesson.title ILIKE :search OR lesson.description ILIKE :search OR lesson.category ILIKE :search)',
+        '(lesson.title ILIKE :search OR lesson.category::text ILIKE :search)',
         { search: `%${pagination.search}%` }
       );
     }
@@ -59,7 +59,7 @@ export class LessonsService extends BaseService<Lesson> {
     }
 
     // Otherwise return all results
-    qb.orderBy('lesson.created_at', 'ASC');
+    qb.orderBy('lesson.createdAt', 'ASC');
     if (includeDetails) {
       qb.addOrderBy('chapter.orderIndex', 'ASC')
         .addOrderBy('hotspot.number', 'ASC');
@@ -156,10 +156,10 @@ export class LessonsService extends BaseService<Lesson> {
         'lesson.id',
         'lesson.slug',
         'lesson.title',
-        'lesson.description',
+        'lesson.localizedTitle',
         'lesson.category',
-        'lesson.duration',
-        'lesson.difficulty',
+        'lesson.durationMinutes',
+        'lesson.isActive',
         'lesson.createdAt',
         'lesson.updatedAt',
       ])
@@ -169,7 +169,7 @@ export class LessonsService extends BaseService<Lesson> {
       qb.andWhere('lesson.category = :category', { category });
     }
 
-    return qb.orderBy('lesson.created_at', 'ASC').getMany();
+    return qb.orderBy('lesson.createdAt', 'ASC').getMany();
   }
 
   /** 
@@ -312,14 +312,20 @@ export class LessonsService extends BaseService<Lesson> {
     const total = parseInt(result?.count || '0', 10);
 
     // Apply pagination to main query
+    // Normalise sortBy: use TypeORM property name with alias; ignore raw 'created_at' default
+    const rawSort = pagination.sortBy;
+    const sortBy = (!rawSort || rawSort === 'created_at')
+      ? 'lesson.createdAt'
+      : rawSort.includes('.') ? rawSort : `lesson.${rawSort}`;
+
     PaginationQueryBuilder.applyPagination(qb, {
       page: pagination.page || 1,
       limit: pagination.limit || 10,
       skip: ((pagination.page || 1) - 1) * (pagination.limit || 10),
-      sortBy: pagination.sortBy || 'lesson.created_at',
+      sortBy,
       order: pagination.order || 'ASC',
       search: pagination.search,
-    }, ['lesson.title', 'lesson.description']);
+    }, ['lesson.title']);
 
     // Execute query
     const lessons = await qb.getMany();
