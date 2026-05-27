@@ -49,8 +49,9 @@ export class EmailNotificationService {
           this.logger.warn(`Unknown email provider: ${emailProvider}. Email notifications will be logged only.`);
       }
     } catch (error) {
-      this.logger.error('Failed to initialize email transporter:', error);
-      this.logger.warn('Email notifications will be logged only.');
+      this.logger.warn('Email transport unavailable — notifications will be logged only.');
+      // Ensure a partially-initialised transporter is not used by cron jobs.
+      this.transporter = null;
     }
   }
 
@@ -66,23 +67,16 @@ export class EmailNotificationService {
       return;
     }
 
-    this.transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransport({
       host,
       port,
       secure,
-      auth: {
-        user,
-        pass,
-      },
-      tls: {
-        rejectUnauthorized: false, // For development
-      },
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
     });
 
-    // Verify connection
-    if (this.transporter) {
-      await this.transporter.verify();
-    }
+    await transporter.verify(); // throws if SMTP unreachable → caught by initializeTransporter
+    this.transporter = transporter; // only assign after successful verify
     this.logger.log('SMTP transporter initialized successfully');
   }
 

@@ -14,6 +14,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { SyncModule } from './modules/sync/sync.module';
 import { TtsModule } from './modules/tts/tts.module';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
+import { HealthController } from './modules/health/health.controller';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { RateLimitGuard } from './common/guards/rate-limit.guard';
     SyncModule,
     TtsModule,
   ],
+  controllers: [HealthController],
   providers: [
     // Global custom rate limiting guard with advanced features
     {

@@ -264,41 +264,52 @@ export class NotificationsService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async processScheduledNotifications(): Promise<void> {
-    const scheduledNotifications = await this.notificationRepo.find({
-      where: {
-        status: NotificationStatus.PENDING,
-        scheduledFor: LessThan(new Date()),
-      },
-      take: 100, // Process in batches
-    });
+    try {
+      const scheduledNotifications = await this.notificationRepo.find({
+        where: {
+          status: NotificationStatus.PENDING,
+          scheduledFor: LessThan(new Date()),
+        },
+        take: 100,
+      });
 
-    for (const notification of scheduledNotifications) {
-      await this.sendNotification(notification.id);
+      for (const notification of scheduledNotifications) {
+        await this.sendNotification(notification.id);
+      }
+    } catch (error) {
+      this.logger.error('processScheduledNotifications error:', error?.message ?? error);
     }
   }
 
   @Cron(CronExpression.EVERY_HOUR)
   async retryFailedNotifications(): Promise<void> {
-    const failedNotifications = await this.notificationRepo.find({
-      where: {
-        status: NotificationStatus.FAILED,
-        retryCount: LessThan(3), // Max 3 retries
-      },
-      take: 50,
-    });
+    try {
+      const failedNotifications = await this.notificationRepo.find({
+        where: {
+          status: NotificationStatus.FAILED,
+          retryCount: LessThan(3),
+        },
+        take: 50,
+      });
 
-    for (const notification of failedNotifications) {
-      await this.retryNotification(notification);
+      for (const notification of failedNotifications) {
+        await this.retryNotification(notification);
+      }
+    } catch (error) {
+      this.logger.error('retryFailedNotifications error:', error?.message ?? error);
     }
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async cleanupExpiredNotifications(): Promise<void> {
-    const expiredCount = await this.notificationRepo.delete({
-      expiresAt: LessThan(new Date()),
-    });
-
-    this.logger.log(`Cleaned up ${expiredCount.affected} expired notifications`);
+    try {
+      const expiredCount = await this.notificationRepo.delete({
+        expiresAt: LessThan(new Date()),
+      });
+      this.logger.log(`Cleaned up ${expiredCount.affected} expired notifications`);
+    } catch (error) {
+      this.logger.error('cleanupExpiredNotifications error:', error?.message ?? error);
+    }
   }
 
   // ── Helper Methods ────────────────────────────────────────────────────────
